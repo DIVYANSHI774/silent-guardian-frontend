@@ -1,4 +1,4 @@
-// EvidenceRecorder.js
+﻿// EvidenceRecorder.js
 
 export async function startEvidenceRecording() {
   try {
