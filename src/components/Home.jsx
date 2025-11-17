@@ -1,8 +1,8 @@
 ﻿import React from "react";
 import { useNavigate } from "react-router-dom";
-import PageWrapper from "../components/PageWrapper"; // ✅ Import wrapper
+import PageWrapper from "../components/PageWrapper";
 
-function Home() {
+export default function Home() {
   const navigate = useNavigate();
 
   return (
@@ -31,7 +31,6 @@ function Home() {
           Silent Guardian
         </h1>
 
-        {/* ✨ Futuristic Tagline */}
         <p
           style={{
             fontSize: "1.2rem",
@@ -45,7 +44,6 @@ function Home() {
           Your Safety, is our <span style={{ color: "#ff0033" }}>Duty</span>.
         </p>
 
-        {/* 🔘 Buttons */}
         <div style={{ display: "flex", gap: "20px" }}>
           <button
             style={{
@@ -94,7 +92,6 @@ function Home() {
           </button>
         </div>
 
-        {/*  Keyframes for fade animation */}
         <style>
           {`
             @keyframes fadeIn {
@@ -107,5 +104,3 @@ function Home() {
     </PageWrapper>
   );
 }
-
-export default Home;

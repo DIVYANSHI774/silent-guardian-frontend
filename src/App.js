@@ -12,7 +12,7 @@ import SOS from "./pages/SOS";
 import FakeCall from "./components/FakeCall";
 import Help from "./pages/Help";
 import About from "./pages/About";
-import GuardianForm from "./components/GuardianForm"; // 🆕 import added
+import GuardianForm from "./components/GuardianForm";
 
 // ✅ Navbar
 import Navbar from "./components/Navbar";
@@ -39,8 +39,6 @@ export default function App() {
 
 function MainRoutes() {
   const location = useLocation();
-
-  // 🌀 Hide Navbar & SOS button on splash screen
   const hideNavbar = location.pathname === "/splash";
 
   return (
@@ -67,7 +65,7 @@ function MainRoutes() {
               <Route path="/fakecall" element={<FakeCall />} />
               <Route path="/help" element={<Help />} />
               <Route path="/about" element={<About />} />
-              <Route path="/guardian" element={<GuardianForm />} /> {/* 🆕 new route added */}
+              <Route path="/guardian" element={<GuardianForm />} />
             </Routes>
           </motion.div>
         </AnimatePresence>

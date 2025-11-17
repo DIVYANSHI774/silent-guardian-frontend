@@ -12,27 +12,28 @@ export default function FakeCall() {
 
   // Ringtone list
   const ringtoneOptions = [
-    { id: "tone1", label: "Classic Phone", src: "/ringtones/phone.mp3.wav" }
+    { id: "tone1", label: "Classic Phone", src: "/ringtones/phone.mp3.wav" },
   ];
 
   // Voice list
   const voiceOptions = [
     { id: "voice1", label: "Female Voice", src: "/voice/female.mp3" },
     { id: "voice2", label: "Male Voice", src: "/voice/male.mp3" },
-    { id: "voice3", label: "Police Siren", src: "/voice/police.mp3" }
+    { id: "voice3", label: "Police Siren", src: "/voice/police.mp3" },
   ];
 
   const ringtoneRef = useRef(null);
   const voiceRef = useRef(null);
+  const intervalRef = useRef(null); // 🔹 To keep timer stable
 
-  // Format time
+  // Format time MM:SS
   const formatTime = (sec) => {
     const m = String(Math.floor(sec / 60)).padStart(2, "0");
     const s = String(sec % 60).padStart(2, "0");
     return `${m}:${s}`;
   };
 
-  // Play ringtone on start
+  // Play ringtone when ringing
   useEffect(() => {
     if (isRinging && ringtoneRef.current) {
       const tone = ringtoneOptions.find((r) => r.id === selectedRingtone);
@@ -40,6 +41,7 @@ export default function FakeCall() {
       ringtoneRef.current.loop = true;
       ringtoneRef.current.play().catch(() => {});
     }
+
     return () => {
       if (ringtoneRef.current) {
         ringtoneRef.current.pause();
@@ -50,32 +52,38 @@ export default function FakeCall() {
 
   // Call timer
   useEffect(() => {
-    let t;
     if (callActive) {
-      t = setInterval(() => setCallTimer((s) => s + 1), 1000);
+      intervalRef.current = setInterval(() => {
+        setCallTimer((prev) => prev + 1);
+      }, 1000);
+    } else if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
     }
-    return () => clearInterval(t);
-  }, [callActive]);
 
-  // When call is answered → stop ringtone, play voice
-  useEffect(() => {
-    if (callActive) {
-      const voice = voiceOptions.find((v) => v.id === selectedVoice);
-      if (voiceRef.current) {
-        voiceRef.current.src = voice.src;
-        setTimeout(() => {
-          voiceRef.current.play().catch(() => {});
-        }, 300);
-      }
-    }
     return () => {
-      if (voiceRef.current) {
-        voiceRef.current.pause();
-        voiceRef.current.currentTime = 0;
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
       }
     };
+  }, [callActive]);
+
+  // Play voice immediately when call starts
+  useEffect(() => {
+    if (callActive && voiceRef.current) {
+      const voice = voiceOptions.find((v) => v.id === selectedVoice);
+      voiceRef.current.src = voice.src;
+      voiceRef.current.loop = true;
+      voiceRef.current.play().catch(() => {});
+    } else if (voiceRef.current) {
+      voiceRef.current.pause();
+      voiceRef.current.currentTime = 0;
+      voiceRef.current.loop = false;
+    }
   }, [callActive, selectedVoice]);
 
+  // Answer call
   const answerCall = () => {
     setIsRinging(false);
     setCallActive(true);
@@ -87,23 +95,23 @@ export default function FakeCall() {
     }
   };
 
+  // End call
   const endCall = () => {
     setCallActive(false);
 
     if (voiceRef.current) {
       voiceRef.current.pause();
       voiceRef.current.currentTime = 0;
+      voiceRef.current.loop = false;
     }
   };
 
   return (
     <div style={styles.page}>
-      {/* Hidden audio */}
       <audio ref={ringtoneRef} preload="auto" />
       <audio ref={voiceRef} preload="auto" />
 
       <div style={styles.card}>
-        {/* Incoming call UI */}
         {isRinging && (
           <div style={styles.centerBox}>
             <img
@@ -113,14 +121,12 @@ export default function FakeCall() {
             />
             <h2 style={styles.white}>Unknown Caller</h2>
             <p style={styles.subText}>Incoming call...</p>
-
             <button style={styles.answerBtn} onClick={answerCall}>
               Answer
             </button>
           </div>
         )}
 
-        {/* Active call UI */}
         {!isRinging && callActive && (
           <div style={styles.centerBox}>
             <img
@@ -130,21 +136,18 @@ export default function FakeCall() {
             />
             <h2 style={styles.white}>Unknown Caller</h2>
             <p style={styles.subText}>{formatTime(callTimer)}</p>
-
             <button style={styles.endBtn} onClick={endCall}>
               End Call
             </button>
           </div>
         )}
 
-        {/* Ended call */}
         {!isRinging && !callActive && (
           <div style={styles.centerBox}>
             <h2 style={styles.white}>Call Ended</h2>
           </div>
         )}
 
-        {/* Settings */}
         <div style={styles.settings}>
           <h3 style={styles.white}>Settings</h3>
 
@@ -187,7 +190,7 @@ const styles = {
     display: "flex",
     justifyContent: "center",
     alignItems: "center",
-    padding: 20
+    padding: 20,
   },
   card: {
     background: "#111",
@@ -196,27 +199,26 @@ const styles = {
     padding: 20,
     borderRadius: 12,
     boxShadow: "0 0 15px rgba(255,255,255,0.05)",
-    textAlign: "center"
+    textAlign: "center",
   },
   centerBox: {
     textAlign: "center",
-    marginBottom: 20
+    marginBottom: 20,
   },
   photo: {
     width: 140,
     height: 140,
     borderRadius: "50%",
-    marginBottom: 15
+    marginBottom: 15,
   },
   photoSmall: {
     width: 90,
     height: 90,
     borderRadius: "50%",
-    marginBottom: 10
+    marginBottom: 10,
   },
   white: { color: "#fff", margin: 0 },
   subText: { color: "#bbb", marginTop: 6, marginBottom: 20 },
-
   answerBtn: {
     width: "100%",
     padding: "12px 0",
@@ -226,9 +228,8 @@ const styles = {
     borderRadius: 8,
     fontWeight: "bold",
     fontSize: 16,
-    cursor: "pointer"
+    cursor: "pointer",
   },
-
   endBtn: {
     width: "100%",
     padding: "12px 0",
@@ -238,20 +239,19 @@ const styles = {
     borderRadius: 8,
     fontWeight: "bold",
     fontSize: 16,
-    cursor: "pointer"
+    cursor: "pointer",
   },
-
   settings: {
     marginTop: 25,
     background: "#1a1a1a",
     padding: 15,
-    borderRadius: 8
+    borderRadius: 8,
   },
   label: {
     color: "#bbb",
     display: "block",
     marginTop: 10,
-    marginBottom: 5
+    marginBottom: 5,
   },
   select: {
     width: "100%",
@@ -259,6 +259,6 @@ const styles = {
     borderRadius: 6,
     border: "1px solid #444",
     background: "#000",
-    color: "#fff"
-  }
+    color: "#fff",
+  },
 };

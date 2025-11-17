@@ -1,11 +1,12 @@
-import React, { useEffect } from "react";
-import { startEvidenceRecording } from "./EvidenceRecorder";
+// src/pages/SOS.jsx
+import React from "react";
+import { startEvidenceRecording } from "../pages/EvidenceRecorder"; // adjust path if needed
 
 // ------------------------
-// 1. CLAP DETECTOR
+// 1. CLAP DETECTOR HOOK
 // ------------------------
 const useClapDetector = (onClap) => {
-  useEffect(() => {
+  React.useEffect(() => {
     const audioContext = new (window.AudioContext || window.webkitAudioContext)();
     let mic;
 
@@ -43,8 +44,8 @@ const useClapDetector = (onClap) => {
 const getCurrentLocation = () => {
   return new Promise((resolve, reject) => {
     navigator.geolocation.getCurrentPosition(
-      pos => resolve(pos.coords),
-      err => reject(err),
+      (pos) => resolve(pos.coords),
+      (err) => reject(err),
       { enableHighAccuracy: true }
     );
   });
@@ -55,28 +56,29 @@ const getCurrentLocation = () => {
 // ------------------------
 const isOutsideSafeZones = (lat, lng) => {
   const zones = JSON.parse(localStorage.getItem("safeZones")) || [];
-
   if (zones.length === 0) return true;
 
+  // Haversine formula for distance
   const distance = (lat1, lon1, lat2, lon2) => {
-    const R = 6371e3;
-    const φ1 = lat1 * Math.PI/180;
-    const φ2 = lat2 * Math.PI/180;
-    const Δφ = (lat2-lat1) * Math.PI/180;
-    const Δλ = (lon2-lon1) * Math.PI/180;
+    const R = 6371e3; // meters
+    const φ1 = lat1 * Math.PI / 180;
+    const φ2 = lat2 * Math.PI / 180;
+    const Δφ = (lat2 - lat1) * Math.PI / 180;
+    const Δλ = (lon2 - lon1) * Math.PI / 180;
 
-    return R * Math.acos(
-      Math.sin(φ1)*Math.sin(φ2) +
-      Math.cos(φ1)*Math.cos(φ2) * Math.cos(Δλ)
-    );
+    const a =
+      Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+      Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+    return R * c; // distance in meters
   };
 
   for (const z of zones) {
     const d = distance(lat, lng, z.lat, z.lng);
-    if (d <= z.radius) return false;
+    if (d <= z.radius) return false; // inside safe zone
   }
-
-  return true;
+  return true; // outside all safe zones
 };
 
 // ------------------------
@@ -89,29 +91,28 @@ const sendWhatsAppMessage = (phone, message) => {
 };
 
 // ------------------------
-// 5. FULL SOS FUNCTION
+// 5. TRIGGER SOS FUNCTION
 // ------------------------
 const triggerSOS = async () => {
   try {
-    // 1. Start Evidence Recording
+    // 1. Start evidence recording
     startEvidenceRecording();
 
-    // 2. Get Location
+    // 2. Get location
     const loc = await getCurrentLocation();
     const { latitude, longitude } = loc;
 
-    // 3. Safe Zone Check
+    // 3. Safe zone check
     const outside = isOutsideSafeZones(latitude, longitude);
 
-    // 4. Guardians
+    // 4. Load guardians
     const guardians = JSON.parse(localStorage.getItem("guardians")) || [];
-
     if (guardians.length === 0) {
       alert("⚠ No guardians added");
       return;
     }
 
-    // 5. SOS Message
+    // 5. Prepare SOS message
     const message = `🚨 SOS ALERT!
 A safety trigger was activated.
 
@@ -122,27 +123,25 @@ https://maps.google.com/?q=${latitude},${longitude}
 
 🎥 Evidence recording ACTIVE`;
 
-    // 6. Send WhatsApp Messages
-    guardians.forEach(g => {
+    // 6. Send WhatsApp messages
+    guardians.forEach((g) => {
       sendWhatsAppMessage(g.phone, message);
     });
 
-    // 7. Siren
+    // 7. Play siren
     const audio = new Audio("/siren.mp3");
     audio.play();
 
     alert("🚨 SOS sent & Evidence recording started!");
-
   } catch (error) {
     console.error(error);
   }
 };
 
 // ------------------------
-// 6. SOS PAGE UI
+// 6. SOS PAGE COMPONENT
 // ------------------------
 export default function SOS() {
-
   // Clap detection → auto SOS
   useClapDetector(() => {
     console.log("👏 Clap detected → SOS triggered");
@@ -163,10 +162,10 @@ export default function SOS() {
           fontSize: 22,
           border: "none",
           cursor: "pointer",
-          marginTop: 20
+          marginTop: 20,
         }}
       >
-        🔴 Trigger SOS
+         Trigger SOS
       </button>
 
       <p style={{ marginTop: 20 }}>
