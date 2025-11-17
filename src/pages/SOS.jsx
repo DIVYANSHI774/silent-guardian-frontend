@@ -1,11 +1,57 @@
 // src/pages/SOS.jsx
 import React from "react";
-import { startEvidenceRecording } from "./EvidenceRecorder";
-
-// Backend URL
+import { startEvidenceRecording } from "./EvidenceRecorder"; // adjust path
 const backendUrl = "https://silent-guardian-backend.onrender.com";
 
-// Clap detector
+// ------------------------
+// 1. Helper functions
+// ------------------------
+
+// Get user location
+const getCurrentLocation = () => {
+  return new Promise((resolve, reject) => {
+    navigator.geolocation.getCurrentPosition(
+      (pos) => resolve(pos.coords),
+      (err) => reject(err),
+      { enableHighAccuracy: true }
+    );
+  });
+};
+
+// Check if outside safe zones
+const isOutsideSafeZones = (lat, lng) => {
+  const zones = JSON.parse(localStorage.getItem("safeZones")) || [];
+  if (zones.length === 0) return true;
+
+  const distance = (lat1, lon1, lat2, lon2) => {
+    const R = 6371e3; // meters
+    const φ1 = lat1 * Math.PI / 180;
+    const φ2 = lat2 * Math.PI / 180;
+    const Δφ = ((lat2 - lat1) * Math.PI) / 180;
+    const Δλ = ((lon2 - lon1) * Math.PI) / 180;
+    const a =
+      Math.sin(Δφ / 2) ** 2 +
+      Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) ** 2;
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  };
+
+  for (const z of zones) {
+    const d = distance(lat, lng, z.lat, z.lng);
+    if (d <= z.radius) return false;
+  }
+  return true;
+};
+
+// Send WhatsApp message
+const sendWhatsAppMessage = (phone, message) => {
+  const url = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+  window.open(url, "_blank");
+};
+
+// ------------------------
+// 2. Clap Detector Hook
+// ------------------------
 const useClapDetector = (onClap, active) => {
   React.useEffect(() => {
     if (!active) return;
@@ -40,52 +86,19 @@ const useClapDetector = (onClap, active) => {
   }, [onClap, active]);
 };
 
-// Get current location
-const getCurrentLocation = () => new Promise((resolve, reject) => {
-  navigator.geolocation.getCurrentPosition(
-    pos => resolve(pos.coords),
-    err => reject(err),
-    { enableHighAccuracy: true }
-  );
-});
-
-// Safe zone check
-const isOutsideSafeZones = (lat, lng) => {
-  const zones = JSON.parse(localStorage.getItem("safeZones")) || [];
-  if (!zones.length) return true;
-
-  const distance = (lat1, lon1, lat2, lon2) => {
-    const R = 6371e3;
-    const φ1 = (lat1 * Math.PI) / 180;
-    const φ2 = (lat2 * Math.PI) / 180;
-    const Δφ = ((lat2 - lat1) * Math.PI) / 180;
-    const Δλ = ((lon2 - lon1) * Math.PI) / 180;
-    const a = Math.sin(Δφ / 2) ** 2 + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) ** 2;
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
-  };
-
-  for (const z of zones) {
-    if (distance(lat, lng, z.lat, z.lng) <= z.radius) return false;
-  }
-  return true;
-};
-
-// Send WhatsApp message
-const sendWhatsAppMessage = (phone, message) => {
-  const url = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
-  window.open(url, "_blank");
-};
-
-// Trigger SOS
+// ------------------------
+// 3. Trigger SOS
+// ------------------------
 const triggerSOS = async () => {
   try {
+    // Start recording
     startEvidenceRecording();
 
+    // Get location
     const { latitude, longitude } = await getCurrentLocation();
     const outside = isOutsideSafeZones(latitude, longitude);
 
-    // Send to backend for logging (optional)
+    // Send to backend
     const payload = { userId: 123, latitude, longitude };
     await fetch(`${backendUrl}/api/sos`, {
       method: "POST",
@@ -93,16 +106,19 @@ const triggerSOS = async () => {
       body: JSON.stringify(payload)
     });
 
-    // WhatsApp message
+    // Load guardians from localStorage
     const guardians = JSON.parse(localStorage.getItem("guardians")) || [];
-    const evidenceUrl = localStorage.getItem("lastEvidenceUrl") || "";
+    if (!guardians.length) return alert("⚠ No guardians added!");
 
+    // Build message
+    const evidenceUrl = localStorage.getItem("lastEvidenceUrl") || "";
     const message = `🚨 SOS ALERT!
 📍 Location: https://maps.google.com/?q=${latitude},${longitude}
 📌 Status: ${outside ? "Outside Safe Zone ❌" : "Inside Safe Zone ✔"}
 🎥 Evidence recording ACTIVE
 🔗 Evidence: ${evidenceUrl}`;
 
+    // Send WhatsApp
     guardians.forEach(g => sendWhatsAppMessage(g.phone, message));
 
     // Play siren
@@ -115,7 +131,9 @@ const triggerSOS = async () => {
   }
 };
 
-// SOS Component
+// ------------------------
+// 4. SOS Component
+// ------------------------
 export default function SOS() {
   const [micActive, setMicActive] = React.useState(false);
   const enableClapDetection = () => setMicActive(true);
@@ -132,16 +150,7 @@ export default function SOS() {
       {!micActive && (
         <button
           onClick={enableClapDetection}
-          style={{
-            background: "orange",
-            color: "white",
-            padding: "15px 30px",
-            borderRadius: 10,
-            fontSize: 18,
-            border: "none",
-            cursor: "pointer",
-            marginBottom: 20
-          }}
+          style={{ background: "orange", color: "white", padding: "15px 30px", fontSize: 18, borderRadius: 10, marginBottom: 20 }}
         >
           Enable Clap Detection 🎤
         </button>
@@ -149,16 +158,7 @@ export default function SOS() {
 
       <button
         onClick={triggerSOS}
-        style={{
-          background: "red",
-          color: "white",
-          padding: "20px 40px",
-          borderRadius: 10,
-          fontSize: 22,
-          border: "none",
-          cursor: "pointer",
-          marginTop: 20
-        }}
+        style={{ background: "red", color: "white", padding: "20px 40px", fontSize: 22, borderRadius: 10 }}
       >
         Trigger SOS
       </button>
