@@ -1,45 +1,50 @@
+// src/pages/SOS.jsx
 import React from "react";
-import { startEvidenceRecording } from "../pages/EvidenceRecorder"; // adjust path
+import { startEvidenceRecording } from "./EvidenceRecorder";
 
-// Backend URLhttps
-const backendUrl = "https://silent-guardian-backend.onrender.com"; // <-- replace
+// Backend URL
+const backendUrl = "https://silent-guardian-backend.onrender.com";
 
 // Clap detector
-const useClapDetector = (onClap) => {
+const useClapDetector = (onClap, active) => {
   React.useEffect(() => {
+    if (!active) return;
+
     const audioContext = new (window.AudioContext || window.webkitAudioContext)();
     let mic;
 
-    navigator.mediaDevices.getUserMedia({ audio: true }).then((stream) => {
-      mic = audioContext.createMediaStreamSource(stream);
-      const analyser = audioContext.createAnalyser();
-      mic.connect(analyser);
-      const data = new Uint8Array(analyser.fftSize);
+    navigator.mediaDevices.getUserMedia({ audio: true })
+      .then(stream => {
+        mic = audioContext.createMediaStreamSource(stream);
+        const analyser = audioContext.createAnalyser();
+        mic.connect(analyser);
+        const data = new Uint8Array(analyser.fftSize);
 
-      const detect = () => {
-        analyser.getByteTimeDomainData(data);
-        let highPeak = false;
-        for (let i = 0; i < data.length; i++) {
-          if (data[i] > 250 || data[i] < 5) {
-            highPeak = true;
-            break;
+        const detect = () => {
+          analyser.getByteTimeDomainData(data);
+          let highPeak = false;
+          for (let i = 0; i < data.length; i++) {
+            if (data[i] > 245 || data[i] < 10) {
+              highPeak = true;
+              break;
+            }
           }
-        }
-        if (highPeak) onClap();
-        requestAnimationFrame(detect);
-      };
-      detect();
-    });
+          if (highPeak) onClap();
+          requestAnimationFrame(detect);
+        };
+        detect();
+      })
+      .catch(err => console.error("Microphone access error:", err));
 
     return () => mic && mic.disconnect();
-  }, [onClap]);
+  }, [onClap, active]);
 };
 
-// Get location
+// Get current location
 const getCurrentLocation = () => new Promise((resolve, reject) => {
   navigator.geolocation.getCurrentPosition(
-    (pos) => resolve(pos.coords),
-    (err) => reject(err),
+    pos => resolve(pos.coords),
+    err => reject(err),
     { enableHighAccuracy: true }
   );
 });
@@ -47,7 +52,7 @@ const getCurrentLocation = () => new Promise((resolve, reject) => {
 // Safe zone check
 const isOutsideSafeZones = (lat, lng) => {
   const zones = JSON.parse(localStorage.getItem("safeZones")) || [];
-  if (zones.length === 0) return true;
+  if (!zones.length) return true;
 
   const distance = (lat1, lon1, lat2, lon2) => {
     const R = 6371e3;
@@ -61,13 +66,12 @@ const isOutsideSafeZones = (lat, lng) => {
   };
 
   for (const z of zones) {
-    const d = distance(lat, lng, z.lat, z.lng);
-    if (d <= z.radius) return false;
+    if (distance(lat, lng, z.lat, z.lng) <= z.radius) return false;
   }
   return true;
 };
 
-// WhatsApp
+// Send WhatsApp message
 const sendWhatsAppMessage = (phone, message) => {
   const url = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
   window.open(url, "_blank");
@@ -78,24 +82,26 @@ const triggerSOS = async () => {
   try {
     startEvidenceRecording();
 
-    const loc = await getCurrentLocation();
-    const { latitude, longitude } = loc;
+    const { latitude, longitude } = await getCurrentLocation();
     const outside = isOutsideSafeZones(latitude, longitude);
 
-    // Send to backend
-    const payload = { userId: 123, latitude, longitude }; // replace with real user ID
+    // Send to backend for logging (optional)
+    const payload = { userId: 123, latitude, longitude };
     await fetch(`${backendUrl}/api/sos`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(payload)
     });
 
-    // WhatsApp
+    // WhatsApp message
     const guardians = JSON.parse(localStorage.getItem("guardians")) || [];
+    const evidenceUrl = localStorage.getItem("lastEvidenceUrl") || "";
+
     const message = `🚨 SOS ALERT!
 📍 Location: https://maps.google.com/?q=${latitude},${longitude}
 📌 Status: ${outside ? "Outside Safe Zone ❌" : "Inside Safe Zone ✔"}
-🎥 Evidence recording ACTIVE`;
+🎥 Evidence recording ACTIVE
+🔗 Evidence: ${evidenceUrl}`;
 
     guardians.forEach(g => sendWhatsAppMessage(g.phone, message));
 
@@ -109,16 +115,38 @@ const triggerSOS = async () => {
   }
 };
 
-// Component
+// SOS Component
 export default function SOS() {
+  const [micActive, setMicActive] = React.useState(false);
+  const enableClapDetection = () => setMicActive(true);
+
   useClapDetector(() => {
     console.log("👏 Clap detected → SOS triggered");
     triggerSOS();
-  });
+  }, micActive);
 
   return (
     <div style={{ padding: 30, textAlign: "center" }}>
       <h1>SOS Emergency</h1>
+
+      {!micActive && (
+        <button
+          onClick={enableClapDetection}
+          style={{
+            background: "orange",
+            color: "white",
+            padding: "15px 30px",
+            borderRadius: 10,
+            fontSize: 18,
+            border: "none",
+            cursor: "pointer",
+            marginBottom: 20
+          }}
+        >
+          Enable Clap Detection 🎤
+        </button>
+      )}
+
       <button
         onClick={triggerSOS}
         style={{
@@ -129,11 +157,12 @@ export default function SOS() {
           fontSize: 22,
           border: "none",
           cursor: "pointer",
-          marginTop: 20,
+          marginTop: 20
         }}
       >
         Trigger SOS
       </button>
+
       <p style={{ marginTop: 20 }}>
         Clap twice loudly to trigger SOS automatically 👏👏
       </p>
