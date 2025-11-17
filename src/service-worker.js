@@ -1,11 +1,7 @@
 /* eslint-disable no-restricted-globals */
 
 const CACHE_NAME = "silent-guardian-cache-v1";
-const urlsToCache = [
-  "/",
-  "/index.html",
-  "/offline.html",
-];
+const urlsToCache = ["/", "/index.html", "/offline.html"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
