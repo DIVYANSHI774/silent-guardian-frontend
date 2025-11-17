@@ -1,4 +1,4 @@
-﻿// src/pages/SOS.jsx
+// src/pages/SOS.jsx
 import React from "react";
 import { startEvidenceRecording } from "../pages/EvidenceRecorder"; // adjust path if needed
 

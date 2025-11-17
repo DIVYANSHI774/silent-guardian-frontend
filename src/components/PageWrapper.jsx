@@ -1,4 +1,4 @@
-﻿// src/components/PageWrapper.jsx
+// src/components/PageWrapper.jsx
 import React from "react";
 import { motion } from "framer-motion";
 

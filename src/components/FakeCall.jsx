@@ -1,4 +1,4 @@
-﻿// FakeCall.jsx
+// FakeCall.jsx
 import React, { useState, useRef, useEffect } from "react";
 
 export default function FakeCall() {
